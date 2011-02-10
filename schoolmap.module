@@ -1,0 +1,110 @@
+<?php
+	// $Id$
+
+    require_once dirname(__file__) . "/../../themes/vst/config.php";
+    
+    /**
+    * Display help and module information
+    * @param path which path of the site we're displaying help
+    * @param arg array that holds the current path as would be returned from arg() function
+    * @return help text for the path
+    */
+    function schoolmap_help($path, $arg) 
+    {
+        $output = ''; 
+      
+        switch ($path) 
+        {
+            case ("admin/help#school"):
+            $output = '<p>'.  t("Defines an editable school object") .'</p>';
+            break;
+        }
+
+        return $output;
+    }
+
+
+    /**
+    * Valid permissions for this module
+    * @return array An array of valid permissions for the onthisdate module
+    */
+    function schoolmap_perm() 
+    {
+        return array('administer school content');
+    }
+    
+    
+    /**
+    * Implementation of hook_block().
+    * @param string $op one of "list", "view", "save" and "configure"
+    * @param integer $delta code to identify the block
+    * @param array $edit only for "save" operation
+    */
+    function schoolmap_block($op = 'list', $delta = 0, $edit = array()) 
+    {
+        $block = array();
+        
+        switch ($op)
+        {
+            case ("list"):
+            {
+                $block[0]["info"] = t("School");
+                break;
+            }
+            
+            case ("view"):
+            {
+                $schools = array();
+                
+                $block["subject"] = "";  
+                $block["content"] = "<script type=\"text/javascript\">\n";
+                
+                $query = "SELECT f.filepath as picture, n.title, s.field_teaser_value as teaser, s.field_name_value as name, s.field_point_value as point, s.field_status_value as status FROM {node} n LEFT JOIN {content_type_school} s ON n.nid = s.nid LEFT JOIN files f on s.field_picture_fid = f.fid WHERE n.status = 1 AND n.type = 'school' ORDER BY status ASC";
+                $query_result =  db_query($query);
+                
+                while($s = db_fetch_object($query_result))
+                {
+                    $schools[] = $s;
+
+                    $properties = "";
+                    foreach ($s as $prop => $value)
+                    {
+                        if ($prop != "point")
+                            $properties .= $prop . " : \"" . str_replace("\"", "\\\"", $value) . "\", ";
+                    }
+                    $properties = rtrim($properties, ", ");    
+                    
+                    $block["content"] .= "    var s = new school( { point : " . ($s->point != "" ? "new GLatLng(" . $s->point . ")" : "\"\"") . ", " . $properties . " } );\n" .
+                                         "    schools[\"" . $s->name . "\"] = s;\n";
+                }
+        
+                $block["content"] .= "\n</script><div id=\"schoolslist\">";
+                
+                $c = 0;
+                while (1)
+                {
+                    $status = $schools[$c]->status;
+                
+                    $block["content"] .=  "<h1>" . $status . "</h1><ol>";
+                
+                    do
+                    {
+                        $block["content"] .=  "<li>" . (strlen($schools[$c]->point) > 0 ? "<a href=\"javascript:schools." . $schools[$c]->name . ".display();\">" . ucfirst($schools[$c]->name) . "</a>" : ucfirst($schools[$c]->name)) . "&nbsp;&nbsp;<a class=\"discrete\" href=\"" . DIR_WEB_ROOT . "/schools/" . $schools[$c]->name . "\">more &raquo;</a></li>";
+                        $c ++;
+                    }
+                    while (isset($schools[$c]) && $status == $schools[$c]->status);
+                
+                    $block["content"] .=  "</ol>";
+                
+                    if (!isset($schools[$c]))
+                        break;
+                }
+                
+                $block["content"] .= "</div><div id=\"map\" style=\"width: 590px; height:550px\"></div>";
+
+                break;
+            }
+        }  
+
+        return $block;
+    }

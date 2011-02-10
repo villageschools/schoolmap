@@ -1,0 +1,5 @@
+; $Id$
+name = School Map
+description = Outputs a block with the list of schools and the map
+core = 6.x
+package = Other
