@@ -32,6 +32,16 @@
     {
         return array('administer school content');
     }
+
+
+    /**
+    * Removes non-alphanumeric characters from the string (for doing javascript)
+    * @return string 
+    */
+    function schoolmap_cleanstr($str)
+    {
+        return preg_replace("/[^\w]/", "", $str);
+    }
     
     
     /**
@@ -59,7 +69,7 @@
                 $block["subject"] = "";  
                 $block["content"] = "<script type=\"text/javascript\">\n";
                 
-                $query = "SELECT f.filepath as picture, n.title, s.field_teaser_value as teaser, s.field_name_value as name, s.field_point_value as point, s.field_status_value as status FROM {node} n LEFT JOIN {content_type_school} s ON n.nid = s.nid LEFT JOIN files f on s.field_picture_fid = f.fid WHERE n.status = 1 AND n.type = 'school' ORDER BY status ASC";
+                $query = "SELECT f.filepath as picture, r.body, n.title, s.field_teaser_value as teaser, s.field_name_value as name, s.field_point_value as point, s.field_status_value as status FROM {node} n LEFT JOIN {node_revisions} r on n.nid = r.nid and n.vid = r.vid LEFT JOIN {content_type_school} s ON n.nid = s.nid LEFT JOIN files f on s.field_picture_fid = f.fid WHERE n.status = 1 AND n.type = 'school' ORDER BY status ASC, (s.field_order_value + 0) ASC";
                 $query_result =  db_query($query);
                 
                 while($s = db_fetch_object($query_result))
@@ -69,13 +79,13 @@
                     $properties = "";
                     foreach ($s as $prop => $value)
                     {
-                        if ($prop != "point")
+                        if ($prop != "point" && $prop != "body")
                             $properties .= $prop . " : \"" . str_replace("\"", "\\\"", $value) . "\", ";
                     }
                     $properties = rtrim($properties, ", ");    
                     
                     $block["content"] .= "    var s = new school( { point : " . ($s->point != "" ? "new GLatLng(" . $s->point . ")" : "\"\"") . ", " . $properties . " } );\n" .
-                                         "    schools[\"" . $s->name . "\"] = s;\n";
+                                         "    schools[\"" . schoolmap_cleanstr($s->name) . "\"] = s;\n";
                 }
         
                 $block["content"] .= "\n</script><div id=\"schoolslist\">";
@@ -85,14 +95,17 @@
                 {
                     $status = $schools[$c]->status;
                 
-                    $block["content"] .=  "<h1>" . $status . "</h1><ol>";
+                    $block["content"] .=  "<h1>" . $status . "</h1><ol start=\"" . ($c + 1) . "\">";
                 
                     do
                     {
-                        $block["content"] .=  "<li>" . (strlen($schools[$c]->point) > 0 ? "<a href=\"javascript:schools." . $schools[$c]->name . ".display();\">" . ucfirst($schools[$c]->name) . "</a>" : ucfirst($schools[$c]->name)) . "&nbsp;&nbsp;<a class=\"discrete\" href=\"" . DIR_WEB_ROOT . "/schools/" . $schools[$c]->name . "\">more &raquo;</a></li>";
+                        $block["content"] .=  "<li>" . 
+                                                (strlen($schools[$c]->point) > 0 ? "<a href=\"javascript:schools." . schoolmap_cleanstr($schools[$c]->name) . ".display();\">" . ucfirst($schools[$c]->name) . "</a>" : ucfirst($schools[$c]->name)) . 
+                                                (strlen($schools[$c]->body) > 0 ? "&nbsp;&nbsp;<a class=\"discrete\" href=\"" . $variables["root_url"] . "schools/" . schoolmap_cleanstr($schools[$c]->name) . "\">more &raquo;</a>" : "") . 
+                                              "</li>";
                         $c ++;
                     }
-                    while (isset($schools[$c]) && $status == $schools[$c]->status);
+                    while (isset($schools[$c]) && strtolower($status) == strtolower($schools[$c]->status));
                 
                     $block["content"] .=  "</ol>";
                 
