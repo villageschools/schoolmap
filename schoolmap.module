@@ -52,6 +52,8 @@
     */
     function schoolmap_block($op = 'list', $delta = 0, $edit = array()) 
     {
+        global $base_path;
+
         $block = array();
         
         switch ($op)
@@ -67,7 +69,14 @@
                 $schools = array();
                 
                 $block["subject"] = "";  
-                $block["content"] = "<script type=\"text/javascript\">\n";
+                $block["content"] = '
+                    <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyDH6jMV0_4Fu5hZ6ydfXooyfILqyJz6a9s&sensor=false"></script>
+                    <script type="text/javascript" src="' . $base_path . 'sites/all/modules/schoolmap/map.js"></script>
+                    <script type="text/javascript">
+
+                        var schools = new Object;
+                        var map = null;
+                ';
                 
                 $query = "SELECT f.filepath as picture, r.body, n.title, s.field_teaser_value as teaser, s.field_name_value as name, s.field_point_value as point, s.field_status_value as status FROM {node} n LEFT JOIN {node_revisions} r on n.nid = r.nid and n.vid = r.vid LEFT JOIN {content_type_school} s ON n.nid = s.nid LEFT JOIN files f on s.field_picture_fid = f.fid WHERE n.status = 1 AND n.type = 'school' ORDER BY status ASC, (s.field_order_value + 0) ASC";
                 $query_result =  db_query($query);
@@ -84,11 +93,30 @@
                     }
                     $properties = rtrim($properties, ", ");    
                     
-                    $block["content"] .= "    var s = new school( { point : " . ($s->point != "" ? "new GLatLng(" . $s->point . ")" : "\"\"") . ", " . $properties . " } );\n" .
-                                         "    schools[\"" . schoolmap_cleanstr($s->name) . "\"] = s;\n";
+                    $block["content"] .= "    schools[\"" . schoolmap_cleanstr($s->name) . "\"] = new school({ point : " . (!empty($s->point) ? '[' . $s->point . ']' : 'null') . ", " . $properties . " } );\n";
                 }
         
-                $block["content"] .= "\n</script><div id=\"schoolslist\">";
+                $block["content"] .= '
+
+                        $(function() {
+                            map = new interactiveMap(
+                                schools, 
+                                document.getElementById("map"), 
+                                {
+                                    zoom: 6,
+                                    center: { 
+                                        // Most of Tanzania and Malawi visible
+                                        lat: -9.664608, 
+                                        lng: 34.804688
+                                    },
+                                    type: "TERRAIN"
+                                }
+                            );
+                        });
+
+                    </script>
+                
+                    <div id="schoolslist">';
                 
                 $c = 0;
                 while (1)
@@ -100,7 +128,7 @@
                     do
                     {
                         $block["content"] .=  "<li>" . 
-                                                (strlen($schools[$c]->point) > 0 ? "<a href=\"javascript:schools." . schoolmap_cleanstr($schools[$c]->name) . ".display();\">" . ucfirst($schools[$c]->name) . "</a>" : ucfirst($schools[$c]->name)) . 
+                                                (strlen($schools[$c]->point) > 0 ? "<a href=\"javascript:map.openInfoWindow('" . schoolmap_cleanstr($schools[$c]->name) . "');\">" . ucfirst($schools[$c]->name) . "</a>" : ucfirst($schools[$c]->name)) . 
                                                 (strlen($schools[$c]->body) > 0 ? "&nbsp;&nbsp;<a class=\"discrete\" href=\"" . $variables["root_url"] . "schools/" . schoolmap_cleanstr($schools[$c]->name) . "\">more &raquo;</a>" : "") . 
                                               "</li>";
                         $c ++;
