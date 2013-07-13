@@ -141,7 +141,7 @@
                         break;
                 }
                 
-                $block["content"] .= "</div><div id=\"map\" style=\"width: 590px; height:550px\"></div>";
+                $block["content"] .= "</div><div id=\"map\" style=\"width: 590px; height:650px\"></div>";
 
                 break;
             }

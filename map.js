@@ -42,7 +42,7 @@ interactiveMap.prototype.init = function() {
     matches = re.exec(window.location);
 
     if (matches)
-        this.locations[matches[1]].display();
+        this.openInfoWindow([matches[1]]);
 }
 
 interactiveMap.prototype.openInfoWindow = function(locationKey) {
